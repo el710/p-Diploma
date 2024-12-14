@@ -51,7 +51,7 @@ async def init_schedule_keyboard(events_list):
     # print(f"init(): {events_list}")
 
     for i, event in enumerate(events_list):
-        button = InlineKeyboardButton(f' {event["time"]} ({event["dealer"]}): {event["desc"]}', callback_data=posts_query.new(button_id=str(i), action='push'))
+        button = InlineKeyboardButton(f' {event["time"]} ({event["dealer"]}): {event["description"]}', callback_data=posts_query.new(button_id=str(i), action='push'))
         schedule.insert(button)
     
     return schedule
@@ -73,10 +73,10 @@ async def init_event_keyboard(user_id, event_id):
     return event_menu
 
 class MakeEvent(StatesGroup):
-    event_date = State()
-    event_time = State()
+    date = State()
+    time = State()
     dealer = State()
-    event_description = State()
+    description = State()
 
 """
     make bot & dispetcher
@@ -112,9 +112,11 @@ async def show_schedule(message):
     """
     t_user = TelegramUser.get_user(message)
     if t_user.login:
-        schedule_menu = await init_schedule_keyboard(t_user.schedule)
-
-        await message.answer(f"Сегодня:", reply_markup=schedule_menu)
+        if t_user.schedule:
+            schedule_menu = await init_schedule_keyboard(t_user.schedule)
+            await message.answer(f"Сегодня:", reply_markup=schedule_menu)
+        else:
+            await message.answer(f"На сегодня событий не найдено:", reply_markup=out_main_keyboard)
     else:
         await message.answer(f"try /start...")
 
@@ -147,11 +149,11 @@ async def get_event_dealer(message, state):
         else:
             await state.update_data(dealer=message.text)
             await message.answer(f"Опишите событие: ", reply_markup = out_cancel_menu)
-            await MakeEvent.event_description.set()
+            await MakeEvent.description.set()
     else:
         await message.answer(f"try /start...")
 
-@dp.message_handler(state=MakeEvent.event_description)
+@dp.message_handler(state=MakeEvent.description)
 async def get_event_description(message, state):
     t_user = TelegramUser.get_user(message)
     if t_user.login:
@@ -162,13 +164,13 @@ async def get_event_description(message, state):
            await message.answer(f"добавление отменено", reply_markup=out_main_keyboard)
            await state.finish()
         else:
-            await state.update_data(event_description=message.text)
+            await state.update_data(description=message.text)
             await message.answer(f"Укажите дату: ", reply_markup = out_cancel_menu)
-            await MakeEvent.event_date.set()
+            await MakeEvent.date.set()
     else:
         await message.answer(f"try /start...")
 
-@dp.message_handler(state=MakeEvent.event_date)
+@dp.message_handler(state=MakeEvent.date)
 async def get_event_date(message, state):
     t_user = TelegramUser.get_user(message)
     if t_user.login:
@@ -179,13 +181,13 @@ async def get_event_date(message, state):
            await message.answer(f"добавление отменено", reply_markup=out_main_keyboard)
            await state.finish()
         else:
-            await state.update_data(event_date=message.text)
+            await state.update_data(date=message.text)
             await message.answer(f"Укажите время: ", reply_markup = out_cancel_menu)
-            await MakeEvent.event_time.set()
+            await MakeEvent.time.set()
     else:
         await message.answer(f"try /start...")
 
-@dp.message_handler(state=MakeEvent.event_time)
+@dp.message_handler(state=MakeEvent.time)
 async def get_event_time(message, state):
     t_user = TelegramUser.get_user(message)
     if t_user.login:
@@ -196,17 +198,15 @@ async def get_event_time(message, state):
            await message.answer(f"добавление отменено", reply_markup=out_main_keyboard)
            await state.finish()
         else:
-            await state.update_data(event_time=message.text)
+            await state.update_data(time=message.text)
             data = await state.get_data()                       
             """
                 CREATE: send new event to main
             """
-            await t_user.create_event(**data)
-
-            if t_user.send_request("create"):
+            if await t_user.create_event(**data):
                 await message.answer("Новое событие: отправлено...", reply_markup=out_main_keyboard)
             else:
-                await message.answer("Новое событие: не добавлено...", reply_markup=out_main_keyboard)
+                await message.answer("Новое событие: не отправлено...", reply_markup=out_main_keyboard)
 
             await state.finish() 
     else:
@@ -231,7 +231,7 @@ async def open_event(call):
         await call.message.answer(f'''
         время: {t_user.schedule[event_id]["time"]}
         контакт: {t_user.schedule[event_id]["dealer"]}
-        событие: {t_user.schedule[event_id]["desc"]}
+        событие: {t_user.schedule[event_id]["description"]}
                                    ''', reply_markup = event_menu)
 
     await call.answer()
@@ -241,17 +241,41 @@ async def edit_event(call):
     """
         Edit Event
     """
-    ids = call.data.split(":")[1]
-    await call.message.answer(f"{ids}")
+    user_id = call.from_user['id']
+    t_user = TelegramUser.find_user(user_id)
+    if t_user:
+        id_data = call.data.split(":")[1]
+        event_id = id_data.split("-")[1]
+
+        params = {"event_id": event_id,
+                  "date": "date",
+                  "time": "time",
+                  "dealer": "dealer",
+                  "description": "desc"
+                }
+        if await t_user.update_event(**params):
+            await call.message.answer(f"User: {user_id} - event: {event_id} отправлено", reply_markup=out_main_keyboard)
+        else:
+            await call.message.answer(f"User: {user_id} - event: {event_id} не отправлено", reply_markup=out_main_keyboard)
+            
+
     await call.answer()
 
 @dp.callback_query_handler(event_callback.filter(action='delete'))
 async def delete_event(call):
     """
-        Edit Event
+        Delete Event
     """
-    ids = call.data.split(":")[1]
-    await call.message.answer(f"{ids}")
+    user_id = call.from_user['id']
+    t_user = TelegramUser.find_user(user_id)
+    if t_user:
+        id_data = call.data.split(":")[1]
+        event_id = id_data.split("-")[1]
+        if await t_user.delete_event(event_id):
+            await call.message.answer(f"User: {user_id} - event: {event_id} отправлено", reply_markup=out_main_keyboard)
+        else:
+            await call.message.answer(f"User: {user_id} - event: {event_id} не отправлено", reply_markup=out_main_keyboard)
+        
     await call.answer()
 
 

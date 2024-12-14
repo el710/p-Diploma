@@ -5,14 +5,6 @@ import queue
 from queue import Empty
 import time
 
-event_keys = ["event_id",
-              "date",
-              "time",
-              "dealer"
-              "desc"
-            ]
-
-
 
 class UUser():
     def __init__(self):
@@ -135,61 +127,66 @@ class TelegramUser(IOUser):
         """
             Request user & schedule from base
         """
-        self.login = True
         # print("activate(): call read_event...")
-        await self.read_event()
+        self.login = await self.read_event()
 
 
     async def create_event(self, **data):
         """
-            CRUD: make Create event request
+            CRUD: make Create event
         """
-        self.event_new_req = {"pack": "create event",
-                              "date": data["event_date"], "time": data["event_time"],
-                              "dealer": data["dealer"], "desc": data["event_description"]
+        self.event_new_req = {"pack": "create_event",
+                              "event_id": None,
+                              "date": data["date"], 
+                              "time": data["time"],
+                              "dealer": data["dealer"], 
+                              "description": data["description"]
                              }     
         # print(f"create_event(): {self.event_new_req}")
-
+        return await self.send_request(request_type="create")
+        
 
     async def read_event(self):
         """
-            CRUD: make Read event request, send & get data
+            CRUD: make Read event 
         """
-        self.event_get_req = {"pack": "read"}
+        self.event_get_req = {"pack": "read_event"}
         self.event_get_req.update(self.get_user_info())
         # print(f"read_event(): call send_request...")
-        if self.send_request(request_type="read"):
-            self.get_schedule()
-        else:
-            print(f"read_event(): failed to send request...")
+        return await self.send_request(request_type="read")
 
 
-    def update_event(self, event_id, *data):
+    async def update_event(self, event_id, **data):
         """
-            make event update request
+            CRUD: make event update
         """
-        self.event_chg_req = {"pack": "update_event"}
-        self.event_chg_req.update(dict(zip(event_keys, data)))
-        """
-            ... sending
-        """
+        self.event_chg_req = {"pack": "update_event",
+                              "event_id": event_id,
+                              "date": data["date"], 
+                              "time": data["time"],
+                              "dealer": data["dealer"], 
+                              "description": data["description"]
+                             }  
+        return await self.send_request(request_type="update")
 
-    def delete_event(self, event_id):
-        """
-            make event delete request
-        """
-        self.event_del_req = {"pack": "delete_event"}
 
-        # make request data
-        # self.event_del_req.update()
+    async def delete_event(self, event_id):
         """
-            ... sending
-        """       
+            CRUD: make event delete request
+        """
+        self.event_del_req = {"pack": "delete_event",
+                              "event_id": event_id,
+                              "date": None, 
+                              "time": None,
+                              "dealer": None, 
+                              "description": None
+                             } 
+        return await self.send_request(request_type="delete")
+      
     
-    def send_request(self, request_type="read") -> bool:
+    async def send_request(self, request_type="read"):
         """
             Send CRUD request to database dispatcher
-            return: True - sending success, False - sending failed
         """
         _request = []
 
@@ -199,7 +196,6 @@ class TelegramUser(IOUser):
             _request.append(self.event_new_req)
         elif request_type == "read":
             _request.append(self.event_get_req)
-            # print(f"send_request(): made {_request}")
         elif request_type == "update":
             _request.append(self.event_chg_req)
         elif request_type == "delete":
@@ -208,15 +204,12 @@ class TelegramUser(IOUser):
             _request.clear()
         
         if _request:
-            try:
-
-                TelegramUser.__out_queue.put(_request)
-                return True
-            except Exception:
-                print("Send event error")
+            TelegramUser.__out_queue.put(_request)
+            return self.get_schedule()
         
         return False
     
+
     def get_schedule(self):
         """
             Get & parce events list to schedule
@@ -227,23 +220,25 @@ class TelegramUser(IOUser):
             try:
                  schedule = TelegramUser.__in_queue.get(timeout=1)
                  if schedule:
-                     self.parse_schedule(schedule)
-                     print(f"get_schedule(): {self.schedule}")
-                     break
+                    self.parse_schedule(schedule)
+                    #  print(f"get_schedule(): {self.schedule}")
+                    return True
             except Empty:
-                print(f"get_schedule(): empty queue ...")
+                # print(f"get_schedule(): empty queue ...")
                 time.sleep(1)
                 _try_count -= 1
-            finally:
-                print(f"get_schedule(): wait...")
+            # finally:
+            #     print(f"get_schedule(): wait...")
+        return False
+
 
     def parse_schedule(self, package):
-        self.schedule = package["schedule"]
-        
-        # self.schedule = [{"event_id": 0, "date": "01.01.2022", "time": "11:00", "dealer": "John Doe", "desc": "meet"},
-        #                  {"event_id": 1, "date": "01.01.2022", "time": "12:00", "dealer": "Spar", "desc": "buy"},
-        #                  {"event_id": 2, "date": "01.01.2022", "time": "13:00", "dealer": "Bank", "desc": "pay"},
-        #                 ]
+        if package["count"]:
+            self.schedule = package["schedule"]
+        else:
+            self.schedule.clear()
+
+
         
                       
 

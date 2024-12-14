@@ -47,25 +47,37 @@ if __name__ == "__main__":
 
 
     _data = {"user": 6837972319,
-            "schedule": [{"event_id": 0, "date": "01.01.2022", "time": "11:00", "dealer": "John Doe", "desc": "meet"},
-                         {"event_id": 1, "date": "01.01.2022", "time": "12:00", "dealer": "Spar", "desc": "buy"},
-                         {"event_id": 2, "date": "01.01.2022", "time": "13:00", "dealer": "Bank", "desc": "pay"},
+             "count": 3,
+             "schedule": [{"event_id": 0, "date": "01.01.2022", "time": "11:00", "dealer": "John Doe", "description": "meet"},
+                         {"event_id": 1, "date": "01.01.2022", "time": "12:00", "dealer": "Spar", "description": "buy"},
+                         {"event_id": 2, "date": "01.01.2022", "time": "13:00", "dealer": "Bank", "description": "pay"},
                         ]
             }
 
     while True:
-        print("main process...")
+        # print("Main(): wait...")
         try:
             event_query = _from_telegram_queue.get(timeout=1)
           
-            print(f"\n main(): {event_query}")
+            print(f"\nMain() get: {event_query}")
 
-            if event_query[1]["pack"] == "read":
-                _to_telegram_queue.put(_data)
-                print(f"Main(): send schedule {_data}")
+            if event_query[1]["pack"] == "create_event":
+                print(f"Main() add event & make schedule")
+
+            elif event_query[1]["pack"] == "read_event":
+                print(f"Main() login user & make schedule")
+
+            elif event_query[1]["pack"] == "udpate_event":
+                print(f"Main() change event & make schedule")
+            
+            elif event_query[1]["pack"] == "delete_event":
+                print(f"Main() delete event & make schedule")
+
+            _to_telegram_queue.put(_data)
+            print(f"\nMain() put: send schedule")
 
         except Empty:
-            time.sleep(5)
+            time.sleep(3)
 
     
 
