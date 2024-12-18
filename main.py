@@ -10,40 +10,34 @@ import time
 import queue
 from queue import Empty
 
+
 os.system('cls')
 print("Vivat Academia")
 
 
-class UProject():
-    """
-        Class U-Project
-        it defines:
-         - main target
-         - list of partners
-         - list of clients (owners of project)
-         - list of employers
-         - plan & schedule
-         - credit & debet
-    """
-    def __init__(self, target: str) -> None:
-        self.main_target = target ## main target
-        self.partners = []
-        self.clients = []
-        self.employers = []
-
 from telegram.telebot import telebot_start
+from web.webapi import webapi_start
 
-_from_telegram_queue = queue.Queue()
-_to_telegram_queue = queue.Queue()
 
 if __name__ == "__main__":
     dir, file = os.path.split(sys.argv[0])
     print(dir, file)
     os.chdir(dir)
 
+    print(f"\nMain(): start...")
 
+    _from_telegram_queue = queue.Queue()
+    _to_telegram_queue = queue.Queue()
     telegram_bot = Thread(target=telebot_start, args=[_to_telegram_queue, _from_telegram_queue], daemon=True)
     telegram_bot.start()
+
+    _to_webapi_queue = queue.Queue()
+    _from_webapi_queue = queue.Queue()
+    webapi_app = Thread(target=webapi_start, args=[_to_webapi_queue, _from_webapi_queue], daemon=True)
+    webapi_app.start()
+
+
+
 
 
     _data = {"user": 6837972319,

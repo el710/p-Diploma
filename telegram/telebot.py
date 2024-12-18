@@ -26,8 +26,12 @@ import asyncio
 import queue
 import json
 
-from .id_bot import tel_token
-from data.user import TelegramUser
+if __name__ == "__main__":
+    from id_bot import tel_token
+else:
+    from .id_bot import tel_token
+    
+from data.telegramuser import TelegramUser
 
 
 text_button_sched = "Расписание"
@@ -62,10 +66,10 @@ button_edit = InlineKeyboardButton(text_button_edit, callback_data='edit')
 button_delete = InlineKeyboardButton(text_button_delete, callback_data="delete")
 event_callback = CallbackData('event', 'id', 'action')
 
-async def init_event_keyboard(user_id, event_id):
+async def init_event_keyboard(user_id, event_num):
     event_menu = InlineKeyboardMarkup()
-    button_edit = InlineKeyboardButton(text_button_edit, callback_data=event_callback.new(id=f"{user_id}-{event_id}", action='edit'))
-    button_delete = InlineKeyboardButton(text_button_delete, callback_data=event_callback.new(id=f"{user_id}-{event_id}", action='delete'))
+    button_edit = InlineKeyboardButton(text_button_edit, callback_data=event_callback.new(id=f"{user_id}-{event_num}", action='edit'))
+    button_delete = InlineKeyboardButton(text_button_delete, callback_data=event_callback.new(id=f"{user_id}-{event_num}", action='delete'))
 
     event_menu.insert(button_edit)
     event_menu.insert(button_delete)
@@ -225,13 +229,13 @@ async def open_event(call):
     t_user = TelegramUser.find_user(user_id)
 
     if t_user:
-        event_id = int(call.data.split(":")[1])
-        event_menu = await init_event_keyboard(user_id, event_id)
+        event_num = int(call.data.split(":")[1])
+        event_menu = await init_event_keyboard(user_id, event_num)
 
         await call.message.answer(f'''
-        время: {t_user.schedule[event_id]["time"]}
-        контакт: {t_user.schedule[event_id]["dealer"]}
-        событие: {t_user.schedule[event_id]["description"]}
+        время: {t_user.schedule[event_num]["time"]}
+        контакт: {t_user.schedule[event_num]["dealer"]}
+        событие: {t_user.schedule[event_num]["description"]}
                                    ''', reply_markup = event_menu)
 
     await call.answer()
@@ -306,7 +310,8 @@ def telebot_start(*args):
     except Exception as e:
         print(f"Error: {e}")
     
-
+if __name__ == "__main__":
+    print("telegram bot...")
     
     
     
