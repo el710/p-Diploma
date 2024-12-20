@@ -59,3 +59,6 @@ class WebUser(IOUser):
         """
         WebUser.__in_queue = in_queue
         WebUser.__out_queue = out_queue
+    
+    def send_message(mess):
+        WebUser.__out_queue.put(mess)

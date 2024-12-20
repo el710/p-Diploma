@@ -8,8 +8,8 @@ import time
 
 class UUser():
     def __init__(self):
-        self.first_name = None
-        self.last_name = None
+        self.firstname = None
+        self.lastname = None
         self.username = None
         self.language = None
         self.is_human = None
@@ -23,8 +23,7 @@ class IOUser(UUser):
 
     def __init__(self):
         super().__init__()
-        self.login = None ## is user login/logout
-        self.interface = {"app": False, "web": False, "telegram": False} ## User interface
+        self.login = False ## is user login/logout
 
     
     def user_log(self):

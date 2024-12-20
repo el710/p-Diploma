@@ -5,9 +5,9 @@ import queue
 from queue import Empty
 import time
 from .user import IOUser
+from .data import *
 
 telegram_keys = ["first_name", "last_name", "username", "language_code", "is_bot", "id"]
-
 
 class TelegramUser(IOUser):
     """
@@ -17,7 +17,6 @@ class TelegramUser(IOUser):
         - object's user id data
         - object's user schedule - list of today's events
 
-
     """
     __users_list = []
     __in_queue = None
@@ -25,15 +24,14 @@ class TelegramUser(IOUser):
 
     def __init__(self, user_data):
         super().__init__()
-        self.first_name = user_data["first_name"]
-        self.last_name = user_data["last_name"]
-        self.username = user_data["username"]
-        self.language = user_data["language_code"]
-        self.set_human_state(not user_data["is_bot"])
+        self.firstname = user_data[telegram_keys[0]]
+        self.lastname = user_data[telegram_keys[1]]
+        self.username = user_data[telegram_keys[2]]
+        self.language = user_data[telegram_keys[3]]
+        self.set_human_state(not user_data[telegram_keys[4]])
         
-        self.user_id = user_data["id"]
-        self.login = False
-        self.interface["telegram"] = True
+        self.telegram_id = user_data[telegram_keys[5]]
+
         self.schedule = []
         self.event_new_req = {}
         self.event_get_req = {}
@@ -44,16 +42,14 @@ class TelegramUser(IOUser):
         """
             Make dict of user identification data
         """
-        return {"user_id": self.user_id, 
-                "first_name": self.first_name, 
-                "last_name": self.last_name,
+        return {"telegram_id": self.telegram_id, 
+                "firstname": self.firstname, 
+                "lastname": self.lastname,
                 "username": self.username, 
                 "language": self.language,
-                "is_human": self.is_human, 
-                "interface": self.interface
+                "is_human": self.is_human
                 }
  
-        
 
     def set_queue(in_queue, out_queue):
         """
@@ -77,7 +73,7 @@ class TelegramUser(IOUser):
 
     def find_user(user_id):
         for item in TelegramUser.users:
-            if item["id"] == user_id:
+            if item[telegram_keys[5]] == user_id:
                 return item["address"]
         return None
 
@@ -89,11 +85,11 @@ class TelegramUser(IOUser):
         user_data = TelegramUser.parse_TG_message(bot_message)
         
         for item in TelegramUser.users:
-            if item["id"] == user_data["id"]:
+            if item["id"] == user_data[telegram_keys[5]]:
                 return item["address"]
         
         new_user = TelegramUser(user_data)
-        TelegramUser.users.append({"id": user_data["id"], "address": new_user})
+        TelegramUser.users.append({"id": user_data[telegram_keys[5]], "address": new_user})
 
         return new_user
     
@@ -165,7 +161,7 @@ class TelegramUser(IOUser):
         """
         _request = []
 
-        _request.append({"user": self.user_id})
+        _request.append({"user": self.telegram_id})
 
         if request_type == "create":
             _request.append(self.event_new_req)
@@ -208,7 +204,7 @@ class TelegramUser(IOUser):
 
 
     def parse_schedule(self, package):
-        if package["count"]:
+        if package["events_count"]:
             self.schedule = package["schedule"]
         else:
             self.schedule.clear()

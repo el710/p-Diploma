@@ -7,9 +7,10 @@ from sqlalchemy import select, insert, update, delete
 from slugify import slugify
 
 from database.db import get_db
-from database.db import get_all_users, get_user
+from database.db import get_all_users, read_base_user, create_base_user
 from database.base_models import UserModel
 from .data_schemas import *
+from data.webuser import WebUser
 
 
 user_router = APIRouter(prefix="/user", tags=["User"])
@@ -21,21 +22,18 @@ async def all_users(db: Annotated[Session, Depends(get_db)]):
 
 @user_router.get("/user_id")
 async def user_by_id(db: Annotated[Session, Depends(get_db)], user_id: int):
-    user = get_user(db, user_id)
+    user = read_base_user(db, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User {user_id} not found")
     return user
 
 
-# @user_router.post("/create")
-# async def create_user(db: Annotated[Session, Depends(get_db)], user: CreateUser):
-#     db.execute(insert(UserModel).values(username = user.username,
-#                                         firstname = user.firstname,
-#                                         lastname = user.lastname,
-#                                         age = user.age,
-#                                         slug = slugify(user.username)))
-#     db.commit()
-#     return {"status_code": status.HTTP_200_OK, "transaction": f"User {user.username} created"}
+@user_router.post("/create")
+async def create_user(db: Annotated[Session, Depends(get_db)], user: CreateUser):
+    create_base_user(db, user)
+    WebUser.send_message("Hi")
+
+    return {"status_code": status.HTTP_200_OK, "transaction": f"User {user.username} created"}
 
 
 # @user_router.put("/update")

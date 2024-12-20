@@ -2,8 +2,12 @@
 # Deal manager
 
 ## Description
-    Program helps to make & manage deals with contacts, combines deals events into schedule
+    Program helps to make & manage deals with contacts, combines deal events into schedule
     Interface: Telegram bot & Web-site
+
+
+
+Tasks:
 
 
 ---

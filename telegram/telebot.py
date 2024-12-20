@@ -120,7 +120,7 @@ async def show_schedule(message):
             schedule_menu = await init_schedule_keyboard(t_user.schedule)
             await message.answer(f"Сегодня:", reply_markup=schedule_menu)
         else:
-            await message.answer(f"На сегодня событий не найдено:", reply_markup=out_main_keyboard)
+            await message.answer(f"Сегодня событий не найдено:", reply_markup=out_main_keyboard)
     else:
         await message.answer(f"try /start...")
 

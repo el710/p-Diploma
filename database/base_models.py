@@ -16,8 +16,8 @@ class UserModel(Base):
     email = Column(String)
     language = Column(String)
     is_human = Column(Boolean)
-    id_telegram = Column(Integer, unique=True, index=True)
-    tasks = relationship(argument="EventModel", back_populates="owner")
+    telegram_id = Column(Integer, unique=True, index=True)
+    tasks_link = relationship(argument="EventModel", back_populates="owner_link")
 
 class EventModel(Base):
     __tablename__ = "events_table"
@@ -25,7 +25,7 @@ class EventModel(Base):
     task = Column(String, index=True)
     date = Column(Date)
     time = Column(Time)
-    owner = relationship(argument="UserModel", back_populates="tasks")
+    owner_link = relationship(argument="UserModel", back_populates="tasks_link")
     owner_id = Column(Integer, ForeignKey("users_table.id")) 
     dealer = Column(String)
     
