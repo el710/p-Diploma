@@ -23,8 +23,8 @@ class EventModel(Base):
     __tablename__ = "events_table"
     id = Column(Integer, primary_key=True, index=True)
     task = Column(String, index=True)
-    date = Column(Date)
-    time = Column(Time)
+    date = Column(String)
+    time = Column(String)
     owner_link = relationship(argument="UserModel", back_populates="tasks_link")
     owner_id = Column(Integer, ForeignKey("users_table.id")) 
     dealer = Column(String)

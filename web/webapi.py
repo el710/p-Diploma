@@ -2,10 +2,12 @@ from fastapi import FastAPI
 import uvicorn
 from data.webuser import WebUser
 from .user_router import user_router
+from .event_router import event_router
 
 
 webapi = FastAPI()
 webapi.include_router(user_router)
+webapi.include_router(event_router)
 
 
 def webapi_start(*args):

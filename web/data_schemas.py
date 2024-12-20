@@ -14,3 +14,15 @@ class CreateUser(BaseModel):
 class UpdateUser(BaseModel):
     firstname: str
     lastname: str
+
+
+"""
+    Event
+"""
+
+class CreateEvent(BaseModel):
+    task: str
+    date: str
+    time: str
+    owner_id: int
+    dealer: str
