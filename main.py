@@ -117,13 +117,28 @@ if __name__ == "__main__":
                         
                         create_base_user(db, tmp_user)
 
-                        """
-                            +send empty user.schedule
-                        """
-                        send_data = {"user": message["telegram_id"],
-                                     "events_count": 0,
-                                     "schedule": []
-                                    }
+                        tmp_user = read_base_user(db, telegram_id=telegram_user)
+                        if tmp_user:
+                            events = read_users_events(db, tmp_user.id) ## list of EventModel
+                            if events is None:
+                                send_data = {"user": message["telegram_id"],
+                                             "events_count": 0,
+                                             "schedule": []
+                                            }
+                            else:
+                                events_list = []
+                                for idx, item in enumerate(events):
+                                    events_list.append({"event_id": idx,
+                                                        "date": item.date,
+                                                        "time": item.time,
+                                                        "dealer": item.dealer,
+                                                        "description": item.task}
+                                                      )
+                                send_data = {"user": tmp_user.telegram_id,
+                                             "events_count": len(events),
+                                             "schedule": events_list
+                                            }
+
                     elif tmp_user.telegram_id == 0:
                         """
                             - update user &  Get user's events
