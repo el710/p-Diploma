@@ -1,6 +1,7 @@
 """
     Copyright (c) 2024 Kim Oleg <theel710@gmail.com>
 """
+
 import os
 import sys
 
@@ -28,6 +29,61 @@ from telegram.telebot import telebot_start
 from web.webapi import webapi_start
 
 
+def run_thread_agent(func):
+    """
+        Run <func> as thread with 
+        conection by two queues: "in" thread & "out" thread
+        Return: in/out queues
+    """
+    in_queue = queue.Queue()
+    out_queue = queue.Queue()
+    thread = Thread(target=func,
+                    args=[in_queue, out_queue],
+                    daemon=True
+                   )
+    try:
+        thread.start()
+    except Exception as exc:
+        print(f"run_thread_agent: exception {exc}")
+        raise Exception
+    
+    return {"in": in_queue, "out": out_queue}
+
+def pack_schedule(user_id, events_list = []):
+    return {"user": user_id,
+            "events_count": len(events_list),
+            "schedule": events_list
+           }
+
+class TMessage():
+    def __init__(self, args):
+        self.user = args[0]["user"]
+        self.type = args[1]["pack"]
+        if self.type == 'read_event':
+             self.username = args[1]["username"]
+             self.firstname = args[1]["firstname"]
+             self.lastname = args[1]["lastname"]
+             self.language = args[1]["language"]
+             self.is_human = args[1]["is_human"]
+             self.telegram_id = args[1]["telegram_id"]            
+        else:
+            self.task = args[1]["description"]
+            self.date = args[1]["date"]
+            self.time = args[1]["time"]
+            self.dealer = args[1]["dealer"]
+
+    
+    def __str__(self):
+        return (str(self.__dir__()))
+    
+    def __del__(self):
+        pass
+
+    
+    def get_user(self): return self.user
+        
+
+
 if __name__ == "__main__":
     dir, file = os.path.split(sys.argv[0])
     print(dir, file)
@@ -35,54 +91,48 @@ if __name__ == "__main__":
 
     print(f"\nMain(): start...")
 
-    _from_telegram_queue = queue.Queue()
-    _to_telegram_queue = queue.Queue()
-    telegram_bot = Thread(target=telebot_start, args=[_to_telegram_queue, _from_telegram_queue], daemon=True)
-    telegram_bot.start()
+    # start thread with telegram bot
+    telegram_link = run_thread_agent(telebot_start)
 
-    _to_webapi_queue = queue.Queue()
-    _from_webapi_queue = queue.Queue()
-    webapi_app = Thread(target=webapi_start, args=[_to_webapi_queue, _from_webapi_queue], daemon=True)
-    webapi_app.start()
+    # start thread with webapi
+    webapi_link = run_thread_agent(webapi_start)
 
-    """
-        INIT:
-        - get all users with telegram_id
-        - get events for each user for today - make schedule
-    """
-    send_data = {}
+    user_schedule = {}
         
+    # main work cycle
     while True:
         # print("Main(): wait...")
         try:
-            event_query = _from_telegram_queue.get(timeout=1)
+            event_query = telegram_link["out"].get(timeout=1)
           
             print(f"\nMain() get: {event_query}")
 
-            telegram_user = event_query[0]["user"]
-            message = event_query[1]
+            mess = TMessage(event_query)
+            # print(mess)
 
-            match message["pack"]:
+            match mess.type:
                 case "create_event":
                     print(f"Main() add event & make schedule")
-
                     db = local_session()
-                    tmp_user = read_base_user(db, telegram_id=telegram_user)
-                    if tmp_user:
-                        new_event = CreateEvent(task = message["description"],
-                                                date = message["date"],
-                                                time = message["time"],
-                                                owner_id = tmp_user.id,
-                                                dealer = message["dealer"]
-                                            )
-                        create_base_event(db, new_event)
+                    tmp_user = read_base_user(db, telegram_id=mess.get_user())
+                    db.close()
 
+                    if tmp_user:
+                        new_event = CreateEvent(task = mess.task,
+                                                date = mess.date,
+                                                time = mess.time,
+                                                owner_id = tmp_user.id,
+                                                dealer = mess.dealer
+                                            )
+                        create_base_event(new_event)
+
+                        db = local_session()
                         events = read_users_events(db, tmp_user.id) ## list of EventModel
+                        db.close()
+
                         if events is None:
-                            send_data = {"user": message["telegram_id"],
-                                         "events_count": 0,
-                                         "schedule": []
-                                        }
+                            ## user have no events - send empty schedule
+                            user_schedule = pack_schedule(mess.get_user())
                         else:
                             events_list = []
                             for idx, item in enumerate(events):
@@ -92,39 +142,31 @@ if __name__ == "__main__":
                                                     "dealer": item.dealer,
                                                     "description": item.task}
                                                    )
-                            
-                            send_data = {"user": tmp_user.telegram_id,
-                                         "events_count": len(events),
-                                         "schedule": events_list
-                                        }
-                                        
-                    db.close()
+                            pack_schedule(tmp_user.telegram_id, events_list=events_list)
+                    
             
                 case "read_event":
                     print(f"Main() login user & make schedule")
-
                     db = local_session()
-                    tmp_user = read_base_user(db, slug=make_slug(message["username"], message["firstname"], message["lastname"]))
+                    tmp_user = read_base_user(db, telegram_id=mess.get_user())
                     if  tmp_user is None:
-                        tmp_user = CreateUser(username = message["username"],
-                                              firstname = message["firstname"],
-                                              lastname = message["lastname"],
+                        tmp_user = CreateUser(username = mess.username,
+                                              firstname = mess.firstname,
+                                              lastname = mess.lastname,
                                               email = 'user@mail',
-                                              language = message["language"],
-                                              is_human = message["is_human"],
-                                              telegram_id = message["telegram_id"]
+                                              language = mess.language,
+                                              is_human = mess.is_human,
+                                              telegram_id = mess.telegram_id
                                             )
                         
                         create_base_user(db, tmp_user)
 
-                        tmp_user = read_base_user(db, telegram_id=telegram_user)
+                        tmp_user = read_base_user(telegram_id=mess.get_user())
                         if tmp_user:
-                            events = read_users_events(db, tmp_user.id) ## list of EventModel
+                            events = read_users_events(tmp_user.id) ## list of EventModel
                             if events is None:
-                                send_data = {"user": message["telegram_id"],
-                                             "events_count": 0,
-                                             "schedule": []
-                                            }
+                                ## user have no events - send empty schedule
+                                user_schedule = pack_schedule(mess.get_user())
                             else:
                                 events_list = []
                                 for idx, item in enumerate(events):
@@ -134,10 +176,8 @@ if __name__ == "__main__":
                                                         "dealer": item.dealer,
                                                         "description": item.task}
                                                       )
-                                send_data = {"user": tmp_user.telegram_id,
-                                             "events_count": len(events),
-                                             "schedule": events_list
-                                            }
+                                user_schedule = pack_schedule(tmp_user.telegram_id, events_list)
+                        db.close()
 
                     elif tmp_user.telegram_id == 0:
                         """
@@ -148,12 +188,11 @@ if __name__ == "__main__":
                         """
                             - Get user's events
                         """
+                        db = local_session()
                         events = read_users_events(db, tmp_user.id) ## list of EventModel
                         if events is None:
-                            send_data = {"user": message["telegram_id"],
-                                         "events_count": 0,
-                                         "schedule": []
-                                        }
+                            ## user have no events - send empty schedule
+                            user_schedule = pack_schedule(mess.get_user())
                         else:
                             events_list = []
                             for idx, item in enumerate(events):
@@ -163,12 +202,8 @@ if __name__ == "__main__":
                                                     "dealer": item.dealer,
                                                     "description": item.task}
                                                 )
-                            send_data = {"user": tmp_user.telegram_id,
-                                         "events_count": len(events),
-                                         "schedule": events_list
-                                        }
-                    
-                    db.close()
+                            user_schedule = pack_schedule(tmp_user.telegram_id, events_list)
+                        db.close()
 
                 case "udpate_event":
                     print(f"Main() change event & make schedule")
@@ -177,15 +212,15 @@ if __name__ == "__main__":
                     print(f"Main() delete event & make schedule")
                 
                 case _:
-                    send_data = {"user": None,
-                                 "events_count": 0,
-                                 "schedule": []
-                                }
+                    ## wrong message - send None user & empty schedule
+                    user_schedule = pack_schedule(None)
 
-            _to_telegram_queue.put(send_data)
-            print(f"\nMain() put: send schedule {send_data}")
+            telegram_link["in"].put(user_schedule)
+            ##print(f"\nMain() put: send schedule {user_schedule}")
 
         except Empty:
+            ## case if no message from telegram
+            ## free proccess time
             time.sleep(3)
 
     

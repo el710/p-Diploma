@@ -116,6 +116,7 @@ async def show_schedule(message):
     """
     t_user = TelegramUser.get_user(message)
     if t_user.login:
+        await t_user.read_event()
         if t_user.schedule:
             schedule_menu = await init_schedule_keyboard(t_user.schedule)
             await message.answer(f"Сегодня:", reply_markup=schedule_menu)
