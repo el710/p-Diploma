@@ -20,8 +20,8 @@
     schedule message:
     {"user": 6837972319,
              "events_count": 3,
-             "schedule": [{"event_id": 0, "date": "01.01.2022", "time": "11:00", "dealer": "John Doe", "description": "meet"},
-                         {"event_id": 1, "date": "01.01.2022", "time": "12:00", "dealer": "Spar", "description": "buy"},
+             "schedule": [{"event_id": 5, "date": "01.01.2022", "time": "11:00", "dealer": "John Doe", "description": "meet"},
+                         {"event_id": 7, "date": "01.01.2022", "time": "12:00", "dealer": "Spar", "description": "buy"},
                          {"event_id": 2, "date": "01.01.2022", "time": "13:00", "dealer": "Bank", "description": "pay"},
                         ]
             }

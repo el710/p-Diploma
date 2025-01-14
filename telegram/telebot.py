@@ -26,6 +26,8 @@ import asyncio
 import queue
 import json
 
+import logging
+
 if __name__ == "__main__":
     from id_bot import tel_token
 else:
@@ -54,8 +56,8 @@ async def init_schedule_keyboard(events_list):
     schedule = InlineKeyboardMarkup(row_width=1)
     # print(f"init(): {events_list}")
 
-    for i, event in enumerate(events_list):
-        button = InlineKeyboardButton(f' {event["time"]} ({event["dealer"]}): {event["description"]}', callback_data=posts_query.new(button_id=str(i), action='push'))
+    for event in events_list:
+        button = InlineKeyboardButton(f' {event["time"]} ({event["dealer"]}): {event["description"]}', callback_data=posts_query.new(button_id=str(event["event_id"]), action='push'))
         schedule.insert(button)
     
     return schedule
@@ -230,14 +232,23 @@ async def open_event(call):
     t_user = TelegramUser.find_user(user_id)
 
     if t_user:
-        event_num = int(call.data.split(":")[1])
-        event_menu = await init_event_keyboard(user_id, event_num)
+        event_id = int(call.data.split(":")[1])
+        event_menu = await init_event_keyboard(user_id, event_id)
 
-        await call.message.answer(f'''
-        время: {t_user.schedule[event_num]["time"]}
-        контакт: {t_user.schedule[event_num]["dealer"]}
-        событие: {t_user.schedule[event_num]["description"]}
-                                   ''', reply_markup = event_menu)
+        event = None    
+        for item in t_user.schedule:
+            if item["event_id"] == event_id:
+                event = item 
+        
+        if event:
+            await call.message.answer(f'''
+                                      id: {event_id} контакт: {event["dealer"]}\n
+            время: {event["time"]}\n
+            событие: {event["description"]}
+                                      ''', reply_markup = event_menu)
+        else:
+            await call.message.answer(f" событие не найдено", reply_markup = out_main_keyboard)
+
 
     await call.answer()
     
@@ -252,17 +263,20 @@ async def edit_event(call):
         id_data = call.data.split(":")[1]
         event_id = id_data.split("-")[1]
 
+        # logging.info(f"edit_event(): event: {event_id}")
+
         params = {"event_id": event_id,
                   "date": "date",
                   "time": "time",
                   "dealer": "dealer",
                   "description": "desc"
                 }
+        # logging.info(f"edit_event(): message: {params}")
+
         if await t_user.update_event(**params):
             await call.message.answer(f"User: {user_id} - event: {event_id} отправлено", reply_markup=out_main_keyboard)
         else:
             await call.message.answer(f"User: {user_id} - event: {event_id} не отправлено", reply_markup=out_main_keyboard)
-            
 
     await call.answer()
 

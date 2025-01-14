@@ -29,3 +29,4 @@ class EventModel(Base):
     owner_id = Column(Integer, ForeignKey("users_table.id")) 
     dealer = Column(String)
     
+    

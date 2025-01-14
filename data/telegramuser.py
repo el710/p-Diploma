@@ -1,6 +1,7 @@
 """
     Copyright (c) 2024 Kim Oleg <theel710@gmail.com>
 """
+import logging
 import queue
 from queue import Empty
 import time
@@ -127,19 +128,20 @@ class TelegramUser(IOUser):
         return await self.send_request(request_type="read")
 
 
-    async def update_event(self, event_id, **data):
+    async def update_event(self, **data):
         """
             CRUD: make event update
         """
         self.event_chg_req = {"pack": "update_event",
-                              "event_id": event_id,
+                              "event_id": data['event_id'],
                               "date": data["date"], 
                               "time": data["time"],
                               "dealer": data["dealer"], 
                               "description": data["description"]
-                             }  
+                             }
+        # logging.info(f"update_event(): send {self.event_chg_req}")
         return await self.send_request(request_type="update")
-
+        
 
     async def delete_event(self, event_id):
         """
@@ -159,9 +161,7 @@ class TelegramUser(IOUser):
         """
             Send CRUD request to database dispatcher
         """
-        _request = []
-
-        _request.append({"user": self.telegram_id})
+        _request = [{"user": self.telegram_id},]
 
         if request_type == "create":
             _request.append(self.event_new_req)
@@ -169,13 +169,17 @@ class TelegramUser(IOUser):
             _request.append(self.event_get_req)
         elif request_type == "update":
             _request.append(self.event_chg_req)
+            # logging.info(f"send_request(): update {self.event_chg_req}")
         elif request_type == "delete":
             _request.append(self.event_del_req)
         else:
             _request.clear()
         
         if _request:
+            # logging.info(f"send_request(): sending... ")
             TelegramUser.__out_queue.put(_request)
+            # logging.info(f"send_request(): send {_request}")
+
             return self.get_schedule()
         
         return False
@@ -185,7 +189,7 @@ class TelegramUser(IOUser):
         """
             Get & parce events list to schedule
         """
-        # print("get_schedule(): ...")
+        # logging.info(f"get_schedule(): waiting...")
         _try_count = 3
         while _try_count:
             try:
